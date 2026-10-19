@@ -108,4 +108,4 @@ GNU General Public License v3.0 or later (GPL-3.0-or-later).
 Developed by [Tachyon Dynamics](https://www.tachyondynamics.ca)  
 GitHub: [github.com/TachyonDynamics](https://github.com/TachyonDynamics)
 
-Support / contact: architect@tachyondynamics.ca
+Support / contact: support@tachyondynamics.ca
