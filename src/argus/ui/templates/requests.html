@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Requests - Argus{% endblock %}
+{% block head %}{% if auto_refresh %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+
+{% block main %}
+<h1>{% if running == 0 %}Nothing running{% elif running == 1 %}1 request running{% else %}{{ running }} requests running{% endif %}</h1>
+<p class="lede">{{ total }} recorded so far.</p>
+
+<div class="tools">
+  <nav aria-label="Filter">
+    <a href="/" {% if not problems %}aria-current="true"{% endif %}>All requests</a>
+    <a href="/?problems=1" {% if problems %}aria-current="true"{% endif %}>Problems only</a>
+  </nav>
+  {% if not cursor %}
+    {% if paused %}<a class="quiet" href="/{% if problems %}?problems=1{% endif %}">Resume live updates</a>
+    {% else %}<a class="quiet" href="/?pause=1{% if problems %}&amp;problems=1{% endif %}">Pause live updates</a>{% endif %}
+  {% else %}
+    <a class="quiet" href="/{% if problems %}?problems=1{% endif %}">Back to newest</a>
+  {% endif %}
+</div>
+
+{% if rows %}
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Time</th>
+      <th scope="col">Model</th>
+      <th scope="col">Type</th>
+      <th scope="col">Outcome</th>
+      <th scope="col" class="num">First token</th>
+      <th scope="col" class="num">Total</th>
+      <th scope="col" class="num">Speed</th>
+      <th scope="col">Tokens</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="tone-{{ r.tone }}">
+      <td><a href="/requests/{{ r.id }}">{{ r.time }}</a></td>
+      <td class="model">{{ r.model }}</td>
+      <td>{{ r.kind }}</td>
+      <td class="outcome">{{ r.outcome }}{% if r.detail %}<span class="detail">{{ r.detail }}</span>{% endif %}</td>
+      <td class="num">{{ r.first_token }}</td>
+      <td class="num">{{ r.total }}</td>
+      <td class="num">{{ r.speed }}</td>
+      <td>{{ r.tokens }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if next_cursor %}
+<p class="more"><a href="/?before={{ next_cursor }}{% if problems %}&amp;problems=1{% endif %}">Older requests</a></p>
+{% endif %}
+
+{% elif problems %}
+<section class="empty">
+  <h2>No problems recorded</h2>
+  <p>Failed and cut-off requests will show up here.</p>
+</section>
+{% else %}
+<section class="empty">
+  <h2>No requests yet</h2>
+  <p>Point an app at <code>{{ proxy_url }}</code> and its requests will appear here. Argus forwards them to Ollama at <code>{{ upstream }}</code>.</p>
+</section>
+{% endif %}
+{% endblock %}

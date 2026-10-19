@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ row.time }} {{ row.model }} - Argus{% endblock %}
+
+{% block main %}
+<p class="crumb"><a href="/">&larr; Requests</a></p>
+<div class="detail-head">
+  <h1>{{ row.time }} &middot; {{ row.kind }}{% if row.model != "–" %} &middot; {{ row.model }}{% endif %}</h1>
+  <span class="chip tone-{{ row.tone }}">{{ row.outcome }}</span>
+</div>
+
+{% if primary %}
+<div class="why sev-{{ primary.severity }}">
+  <p class="why-kicker">{{ primary.kicker }}</p>
+  <h2 class="why-title">{{ primary.title }}</h2>
+  <p class="why-explanation">{{ primary.explanation }}</p>
+  {% if primary.evidence %}
+  <div class="evidence">
+    {% for e in primary.evidence %}
+    <span class="chip evidence-chip">{{ e.text }}<span class="tag">{{ "measured" if e.measured else "inferred" }}</span></span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if primary.fix %}<p class="why-fix"><strong>Try:</strong> {{ primary.fix }}</p>{% endif %}
+  {% if primary.note %}<p class="why-note">{{ primary.note }}</p>{% endif %}
+</div>
+{% endif %}
+
+{% if also %}
+<div class="also">
+  <p class="also-heading">Also noticed</p>
+  {% for f in also %}
+  <div class="also-item sev-{{ f.severity }}">
+    <p class="also-title">{{ f.title }}</p>
+    <p>{{ f.explanation }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if waterfall %}
+<div class="panel">
+  <div class="panel-head"><span>Where the time went</span><span class="muted">total {{ row.total }}</span></div>
+  <svg class="waterfall-svg" viewBox="0 0 100 20" preserveAspectRatio="none">
+    {% for seg in waterfall %}
+    <rect class="seg seg-{{ seg.kind }}{% if not seg.measured %} seg-inferred{% endif %}"
+          x="{{ seg.x }}" y="0" width="{{ seg.w }}" height="20">
+      <title>{{ seg.label }}: {{ seg.duration }}</title>
+    </rect>
+    {% endfor %}
+  </svg>
+  <div class="legend">
+    {% for seg in waterfall %}
+    <span class="legend-item"><span class="swatch seg-{{ seg.kind }}{% if not seg.measured %} seg-inferred{% endif %}"></span>{{ seg.label }} {{ seg.duration }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="stats-grid">
+  <div class="stat"><div class="stat-label">Speed</div><div class="stat-value">{{ row.speed }}</div></div>
+  <div class="stat"><div class="stat-label">Tokens</div><div class="stat-value">{{ row.tokens }}</div></div>
+  <div class="stat"><div class="stat-label">First token</div><div class="stat-value">{{ row.first_token }}</div></div>
+  <div class="stat"><div class="stat-label">Longest pause</div><div class="stat-value">{{ row.longest_pause }}</div></div>
+</div>
+
+<p class="privacy-note">Argus doesn't store prompts or responses in this version - only timing and outcome metadata.</p>
+{% endblock %}

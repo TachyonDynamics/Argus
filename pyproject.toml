@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "argus-monitor"
+version = "0.1.0"
+description = "Local AI monitor: transparent proxy, diagnostics, and model integrity for Ollama"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0-or-later" }
+authors = [
+    { name = "Tachyon Dynamics", email = "architect@tachyondynamics.ca" }
+]
+keywords = ["ollama", "llm", "monitor", "proxy", "diagnostics", "integrity", "local-ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "starlette>=0.37",
+    "uvicorn>=0.29",
+    "httpx>=0.27",
+    "orjson>=3.9",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+]
+
+[project.urls]
+Homepage = "https://github.com/TachyonDynamics/Argus"
+Repository = "https://github.com/TachyonDynamics/Argus"
+Issues = "https://github.com/TachyonDynamics/Argus/issues"
+"Company" = "https://www.tachyondynamics.ca"
+
+[project.scripts]
+argus = "argus.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+argus = ["ui/templates/*.html", "ui/static/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["tests"]

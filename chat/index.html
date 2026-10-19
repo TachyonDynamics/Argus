@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Argus Chat</title>
+  <style>
+    :root {
+      --paper: #14181b;
+      --surface: #1b2126;
+      --ink: #e6eaed;
+      --muted: #98a4ad;
+      --rule: #2b343b;
+      --signal: #5cc0d0;
+      --ok: #5cc98f;
+      --bad: #f0857c;
+      --font: "Segoe UI", system-ui, sans-serif;
+      --mono: Consolas, ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font: 15px/1.5 var(--font);
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 20px;
+      padding: 12px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--rule);
+    }
+    .brand { font-weight: 650; font-size: 1.1rem; }
+    .brand span { color: var(--muted); font-weight: 500; font-size: 0.9rem; margin-left: 8px; }
+    label { color: var(--muted); font-size: 0.85rem; }
+    select, input[type="number"], button, textarea {
+      font: inherit;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+    select { min-width: 180px; }
+    input[type="number"] { width: 72px; }
+    button {
+      cursor: pointer;
+      background: var(--signal);
+      color: #0b1518;
+      border-color: transparent;
+      font-weight: 600;
+    }
+    button.secondary { background: transparent; color: var(--muted); border-color: var(--rule); }
+    button.secondary:hover { color: var(--ink); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .status { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+    .status.err { color: var(--bad); }
+    .status.ok { color: var(--ok); }
+
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .msg {
+      max-width: 720px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--rule);
+      background: var(--surface);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user { align-self: flex-end; border-color: #3a5a62; }
+    .msg.assistant { align-self: flex-start; }
+    .msg .who { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .msg.error { border-color: var(--bad); color: var(--bad); }
+
+    footer {
+      border-top: 1px solid var(--rule);
+      background: var(--surface);
+      padding: 12px 18px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    footer textarea {
+      flex: 1;
+      min-height: 44px;
+      max-height: 160px;
+      resize: vertical;
+    }
+    footer .actions { display: flex; flex-direction: column; gap: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Argus Chat <span>via proxy</span></div>
+    <div class="row">
+      <label>Model
+        <select id="model"></select>
+      </label>
+      <button type="button" class="secondary" id="refresh" title="Refresh model list">↻</button>
+      <label>GPU layers
+        <input type="number" id="numGpu" min="0" max="99" value="20" title="0 = CPU only; higher = more layers on GPU">
+      </label>
+      <button type="button" class="secondary" id="unload">Unload model</button>
+    </div>
+    <div class="status" id="status">Loading models…</div>
+  </header>
+
+  <div id="log"></div>
+
+  <footer>
+    <textarea id="input" rows="2" placeholder="Message… (Enter to send, Shift+Enter for newline)"></textarea>
+    <div class="actions">
+      <button type="button" id="send">Send</button>
+      <button type="button" class="secondary" id="clear">Clear</button>
+    </div>
+  </footer>
+
+  <script>
+    const logEl = document.getElementById("log");
+    const statusEl = document.getElementById("status");
+    const modelEl = document.getElementById("model");
+    const numGpuEl = document.getElementById("numGpu");
+    const inputEl = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    let messages = [];
+    let busy = false;
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = "status" + (cls ? " " + cls : "");
+    }
+
+    function addBubble(role, text, isError) {
+      const div = document.createElement("div");
+      div.className = "msg " + role + (isError ? " error" : "");
+      const who = document.createElement("div");
+      who.className = "who";
+      who.textContent = role;
+      const body = document.createElement("div");
+      body.textContent = text;
+      div.appendChild(who);
+      div.appendChild(body);
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight;
+      return body;
+    }
+
+    async function loadModels() {
+      setStatus("Loading models…");
+      try {
+        const r = await fetch("/api/tags");
+        if (!r.ok) throw new Error(await r.text());
+        const data = await r.json();
+        const models = (data.models || []).map(m => m.name).sort();
+        modelEl.innerHTML = "";
+        if (!models.length) {
+          modelEl.innerHTML = "<option value=\"\">No models found</option>";
+          setStatus("No models — is Ollama up behind Argus?", "err");
+          return;
+        }
+        for (const name of models) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          modelEl.appendChild(opt);
+        }
+        const prefer = models.find(n => n.includes("qwen-capped")) || models[0];
+        modelEl.value = prefer;
+        setStatus("Ready · " + models.length + " model(s)", "ok");
+      } catch (e) {
+        setStatus("Cannot reach Argus proxy: " + e.message, "err");
+      }
+    }
+
+    async function send() {
+      const text = inputEl.value.trim();
+      if (!text || busy) return;
+      const model = modelEl.value;
+      if (!model) {
+        setStatus("Pick a model first", "err");
+        return;
+      }
+
+      busy = true;
+      sendBtn.disabled = true;
+      inputEl.value = "";
+      messages.push({ role: "user", content: text });
+      addBubble("user", text);
+
+      const assistantBody = addBubble("assistant", "…");
+      setStatus("Generating…");
+
+      const numGpu = Number(numGpuEl.value);
+      const payload = {
+        model,
+        messages,
+        stream: true,
+        options: {},
+      };
+      if (!Number.isNaN(numGpu) && numGpu >= 0) {
+        payload.options.num_gpu = numGpu;
+      }
+
+      try {
+        const r = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) {
+          const errText = await r.text();
+          throw new Error(errText || r.statusText);
+        }
+
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let full = "";
+        let buf = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
+          for (const line of lines) {
+            const s = line.trim();
+            if (!s) continue;
+            let obj;
+            try { obj = JSON.parse(s); } catch { continue; }
+            if (obj.error) throw new Error(obj.error);
+            const piece = obj.message && obj.message.content;
+            if (piece) {
+              full += piece;
+              assistantBody.textContent = full;
+              logEl.scrollTop = logEl.scrollHeight;
+            }
+          }
+        }
+
+        if (!full) full = "(empty reply)";
+        assistantBody.textContent = full;
+        messages.push({ role: "assistant", content: full });
+        setStatus("Ready", "ok");
+      } catch (e) {
+        assistantBody.textContent = "Error: " + e.message;
+        assistantBody.parentElement.classList.add("error");
+        setStatus(e.message, "err");
+        // drop failed turn from history
+        messages.pop();
+      } finally {
+        busy = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+      }
+    }
+
+    async function unload() {
+      const model = modelEl.value;
+      if (!model) return;
+      setStatus("Unloading " + model + "…");
+      try {
+        // keep_alive 0 asks Ollama to drop the model from memory
+        const r = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: "." }],
+            stream: false,
+            keep_alive: 0,
+          }),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        setStatus("Unload requested for " + model, "ok");
+      } catch (e) {
+        setStatus("Unload failed: " + e.message, "err");
+      }
+    }
+
+    document.getElementById("send").addEventListener("click", send);
+    document.getElementById("refresh").addEventListener("click", loadModels);
+    document.getElementById("unload").addEventListener("click", unload);
+    document.getElementById("clear").addEventListener("click", () => {
+      messages = [];
+      logEl.innerHTML = "";
+      setStatus("Cleared", "ok");
+    });
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    loadModels();
+    inputEl.focus();
+  </script>
+</body>
+</html>

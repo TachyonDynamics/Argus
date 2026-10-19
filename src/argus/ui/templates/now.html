@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Now - Argus{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="2">{% endblock %}
+
+{% block main %}
+<h1>{% if live|length == 0 %}Nothing running{% elif live|length == 1 %}1 request running{% else %}{{ live|length }} requests running{% endif %}</h1>
+
+{% if live %}
+<div class="live-cards">
+  {% for c in live %}
+  <div class="live-card">
+    <div class="live-card-head">
+      <span class="live-model">{{ c.model }}</span>
+      <span class="phase phase-{{ c.phase|lower|replace(' ', '-') }}">{{ c.phase }}</span>
+    </div>
+    <p class="live-meta">{{ c.kind }} &middot; {{ c.client }} &middot; running {{ c.elapsed }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="lede">Argus isn't proxying any requests right now.</p>
+{% endif %}
+
+<h2 class="recent-heading">Recently finished</h2>
+{% if recent %}
+<div class="recent-list">
+  {% for r in recent %}
+  <a class="recent-item tone-{{ r.tone }}" href="/requests/{{ r.id }}">
+    <span class="recent-time">{{ r.time }}</span>
+    <span class="recent-model">{{ r.model }}</span>
+    <span class="recent-why">{{ r.why }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="lede">Nothing has finished yet. Point an app at <code>{{ proxy_url }}</code> to get started.</p>
+{% endif %}
+{% endblock %}

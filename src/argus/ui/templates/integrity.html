@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Integrity - Argus{% endblock %}
+
+{% block main %}
+<h1>{{ headline }}</h1>
+{% if subline %}<p class="lede">{{ subline }}</p>{% endif %}
+<p class="integrity-intro">{{ intro }}</p>
+{% if notice %}<p class="notice">{{ notice }}</p>{% endif %}
+
+<div class="tools">
+  <span class="quiet">{% if last_checked %}Last checked {{ last_checked }}{% else %}Never checked{% endif %}{% if coverage %} &middot; {{ coverage }}{% endif %}</span>
+  <span class="integrity-actions">
+    <form method="post" action="/integrity/scan" class="inline-form">
+      <button type="submit" {% if not can_edit %}disabled{% endif %}>{% if scanning %}Checking…{% else %}Check now{% endif %}</button>
+    </form>
+    <form method="post" action="/integrity/scan/force" class="inline-form">
+      <button type="submit" class="quiet-button" {% if not can_edit %}disabled{% endif %}>Check everything again</button>
+    </form>
+  </span>
+</div>
+
+{% if warnings %}
+<div class="warnings-list">
+  {% for w in warnings %}
+  <div class="why sev-critical">
+    <p class="why-kicker">{{ w.kicker }} &middot; {{ w.subject if w.kind == "blob_corrupt" else w.name }}</p>
+    <h2 class="why-title">{{ w.title }}</h2>
+    <p class="why-explanation">{{ w.explanation }}</p>
+    <div class="evidence">
+      {% if w.kind == "blob_corrupt" %}
+        <span class="chip evidence-chip">expected {{ w.expected }}</span>
+        <span class="chip evidence-chip">found {{ w.found }}</span>
+        <span class="chip evidence-chip">{{ w.size }}</span>
+      {% else %}
+        <span class="chip evidence-chip">approved {{ w.approved }}</span>
+        <span class="chip evidence-chip">found {{ w.found }}</span>
+        <span class="chip evidence-chip">approved {{ w.approved_when }}</span>
+      {% endif %}
+    </div>
+    {% if w.kind == "blob_corrupt" %}
+      <p class="why-fix"><strong>Try:</strong> {{ w.fix }}</p>
+      <p class="why-note">{{ w.path }}</p>
+    {% else %}
+      <form method="post" action="/integrity/approve" class="inline-form">
+        <input type="hidden" name="name" value="{{ w.name }}">
+        <input type="hidden" name="digest" value="{{ w.digest }}">
+        <button type="submit" {% if not can_edit %}disabled{% endif %}>Approve this version</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if review_new or review_missing or review_unreadable %}
+<div class="panel">
+  <div class="panel-head"><span>Needs a look</span></div>
+  {% if review_new %}
+  <div class="review-group">
+    <p class="review-heading">Not yet approved</p>
+    <p class="review-help">{{ new_help }}</p>
+    {% for m in review_new %}
+    <div class="review-row">
+      <span class="model-name">{{ m.name }}</span>
+      <form method="post" action="/integrity/approve" class="inline-form">
+        <input type="hidden" name="name" value="{{ m.raw_name }}">
+        <input type="hidden" name="digest" value="{{ m.digest }}">
+        <button type="submit" {% if not can_edit %}disabled{% endif %}>Approve this model</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% if review_new|length > 1 %}
+    <form method="post" action="/integrity/approve-all" class="inline-form">
+      <button type="submit" class="quiet-button" {% if not can_edit %}disabled{% endif %}>Approve all {{ review_new|length }}</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if review_missing %}
+  <div class="review-group">
+    <p class="review-heading">No longer installed</p>
+    <p class="review-help">{{ missing_help }}</p>
+    {% for m in review_missing %}
+    <div class="review-row">
+      <span class="model-name">{{ m.name }}</span>
+      <form method="post" action="/integrity/forget" class="inline-form">
+        <input type="hidden" name="name" value="{{ m.raw_name }}">
+        <button type="submit" class="quiet-button" {% if not can_edit %}disabled{% endif %}>Remove from list</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if review_unreadable %}
+  <div class="review-group">
+    <p class="review-heading">Couldn't be read</p>
+    <p class="review-help">{{ unreadable_help }}</p>
+    {% for b in review_unreadable %}
+    <div class="review-row">
+      <span>{{ b.models if b.models else "(no model refers to this file)" }} &middot; {{ b.digest }} &middot; {{ b.size }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if models %}
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th scope="col">Model</th><th scope="col">Status</th><th scope="col">Files</th><th scope="col">Approved</th></tr>
+  </thead>
+  <tbody>
+  {% for m in models %}
+    <tr class="tone-{{ m.tone }}">
+      <td class="model">{{ m.name }}</td>
+      <td class="outcome">{{ m.status_label }}</td>
+      <td>{{ m.files }}</td>
+      <td>{{ m.approved }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

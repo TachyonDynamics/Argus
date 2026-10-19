@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Argus{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="bar">
+    <a class="brand" href="/">Argus</a>
+    <nav aria-label="Main">
+      <a href="/now" {% if active_nav == "now" %}aria-current="page"{% endif %}>Now</a>
+      <a href="/" {% if active_nav == "requests" %}aria-current="page"{% endif %}>Requests</a>
+      <a href="/integrity" {% if active_nav == "integrity" %}aria-current="page"{% endif %}>Integrity{% if integrity_issues %}<span class="nav-badge">{{ integrity_issues }}</span>{% endif %}</a>
+    </nav>
+    <p class="upstream">Watching Ollama at {{ upstream }}</p>
+  </header>
+  <main>
+    {% block main %}{% endblock %}
+  </main>
+</body>
+</html>
